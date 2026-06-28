@@ -4,6 +4,7 @@ Review Page — Review and Confirm Claims
 
 import streamlit as st
 import json
+from ..config import config
 
 
 def render():
