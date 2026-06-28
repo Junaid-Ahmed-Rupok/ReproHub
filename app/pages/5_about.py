@@ -3,7 +3,7 @@ About Page — Help and Documentation
 """
 
 import streamlit as st
-from ..config import config
+from app.config import config
 
 
 def render():
