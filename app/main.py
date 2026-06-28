@@ -1,6 +1,3 @@
-import sys
-sys.path.insert(0, '/mount/src/reprohub')
-
 """
 ReproHub - Main Application Entry Point
 Streamlit web application for research reproducibility verification.
@@ -9,6 +6,7 @@ Path: app/main.py
 Run from the project root with: streamlit run app/main.py
 """
 import importlib
+from pathlib import Path
 
 import streamlit as st
 
@@ -31,6 +29,34 @@ PAGE_ORDER = [
     ("📄 Report", "pages.4_report", "analysis_complete"),
     ("ℹ️ About", "pages.5_about", None),
 ]
+
+# CSS lives at app/static/css/styles.css - resolved relative to this file,
+# not relative to the working directory, so it works the same whether you
+# run `streamlit run app/main.py` from the repo root or anywhere else.
+CSS_PATH = Path(__file__).resolve().parent / "static" / "css" / "styles.css"
+
+
+def load_css(css_path: Path) -> None:
+    """
+    Inject the app's stylesheet. Streamlit does not auto-load files from
+    a static folder - without this call, styles.css sits on disk and has
+    no effect on the rendered page, which is why the custom theme (e.g.
+    the dark ink-blue background) won't appear without it.
+
+    Fails visibly but non-fatally if the file is missing, so a packaging
+    mistake shows up as an obvious warning rather than a silently
+    unstyled app that's confusing to debug later.
+    """
+    if not css_path.exists():
+        st.warning(
+            f"Stylesheet not found at `{css_path}` - the app will render with "
+            "default Streamlit styling. Check that static/css/styles.css was "
+            "included in the deployment.",
+            icon="🎨",
+        )
+        return
+    css_text = css_path.read_text(encoding="utf-8")
+    st.markdown(f"<style>{css_text}</style>", unsafe_allow_html=True)
 
 
 def init_session_state() -> None:
@@ -160,6 +186,8 @@ def render_page(module_path: str) -> None:
 
 def main() -> None:
     """Main application entry point."""
+    load_css(CSS_PATH)
+
     config.ensure_directories()
 
     try:
