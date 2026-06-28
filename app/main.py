@@ -6,7 +6,19 @@ Path: app/main.py
 Run from the project root with: streamlit run app/main.py
 """
 import importlib
+import sys
 from pathlib import Path
+
+# Make the repo root importable (so `from app.config import ...` works)
+# without depending on a hardcoded absolute path. This file lives at
+# <repo_root>/app/main.py, so the repo root is one level up. Computing
+# it this way works identically on Streamlit Cloud, locally, in CI, or
+# wherever the repo happens to get cloned - a hardcoded path like
+# '/mount/src/reprohub' breaks the moment the actual mount path differs
+# even slightly, which is what caused the ModuleNotFoundError.
+REPO_ROOT = Path(__file__).resolve().parent.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 
 import streamlit as st
 
@@ -21,31 +33,39 @@ st.set_page_config(
 from app.config import config, ConfigError
 
 # Pages, in pipeline order, with the session-state flag (if any) required
-# to reach them, and the actual module path under pages/.
+# to reach them, and the actual module path under app/page_modules/.
+#
+# Deliberately named "page_modules", not "pages": Streamlit auto-detects
+# any folder literally named "pages" next to the running script and
+# turns it into its own native multipage router with real URLs
+# (/upload, /review, ...). That router runs independently of this
+# file's logic - it doesn't share the path-resolution fix above, doesn't
+# enforce the step-gating below, and was the direct cause of the
+# ModuleNotFoundError (Streamlit was executing page files as their own
+# entry scripts, outside this file's sys.path setup). Renaming the
+# folder removes the conflict at its source instead of fighting
+# Streamlit's router with workarounds.
 PAGE_ORDER = [
-    ("📤 Upload", "pages.1_upload", None),
-    ("📋 Review", "pages.2_review", "extraction_complete"),
-    ("📊 Dashboard", "pages.3_dashboard", "analysis_complete"),
-    ("📄 Report", "pages.4_report", "analysis_complete"),
-    ("ℹ️ About", "pages.5_about", None),
+    ("📤 Upload", "app.page_modules.1_upload", None),
+    ("📋 Review", "app.page_modules.2_review", "extraction_complete"),
+    ("📊 Dashboard", "app.page_modules.3_dashboard", "analysis_complete"),
+    ("📄 Report", "app.page_modules.4_report", "analysis_complete"),
+    ("ℹ️ About", "app.page_modules.5_about", None),
 ]
 
-# CSS lives at app/static/css/styles.css - resolved relative to this file,
-# not relative to the working directory, so it works the same whether you
-# run `streamlit run app/main.py` from the repo root or anywhere else.
+# CSS lives at app/static/css/styles.css - resolved relative to this
+# file, not the working directory, so it works the same regardless of
+# where `streamlit run` is invoked from.
 CSS_PATH = Path(__file__).resolve().parent / "static" / "css" / "styles.css"
 
 
 def load_css(css_path: Path) -> None:
     """
     Inject the app's stylesheet. Streamlit does not auto-load files from
-    a static folder - without this call, styles.css sits on disk and has
-    no effect on the rendered page, which is why the custom theme (e.g.
-    the dark ink-blue background) won't appear without it.
-
-    Fails visibly but non-fatally if the file is missing, so a packaging
-    mistake shows up as an obvious warning rather than a silently
-    unstyled app that's confusing to debug later.
+    a static folder, and Streamlit also sets its own explicit white
+    background on internal wrapper elements (stApp, stHeader) that sit
+    above <body> in paint order - the stylesheet itself accounts for
+    that. Without this call, styles.css has no effect at all.
     """
     if not css_path.exists():
         st.warning(
