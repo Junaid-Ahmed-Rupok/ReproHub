@@ -15,7 +15,7 @@ from pathlib import Path
 # it this way works identically on Streamlit Cloud, locally, in CI, or
 # wherever the repo happens to get cloned - a hardcoded path like
 # '/mount/src/reprohub' breaks the moment the actual mount path differs
-# even slightly, which is what caused the ModuleNotFoundError.
+# even slightly, which previously caused a ModuleNotFoundError.
 REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -33,30 +33,27 @@ st.set_page_config(
 from app.config import config, ConfigError
 
 # Pages, in pipeline order, with the session-state flag (if any) required
-# to reach them, and the actual module path under app/page_modules/.
+# to reach them, and the actual module path under app/pages/.
 #
-# Deliberately named "page_modules", not "pages": Streamlit auto-detects
-# any folder literally named "pages" next to the running script and
-# turns it into its own native multipage router with real URLs
-# (/upload, /review, ...). That router runs independently of this
-# file's logic - it doesn't share the path-resolution fix above, doesn't
-# enforce the step-gating below, and was the direct cause of the
-# ModuleNotFoundError (Streamlit was executing page files as their own
-# entry scripts, outside this file's sys.path setup). Renaming the
-# folder removes the conflict at its source instead of fighting
-# Streamlit's router with workarounds.
+# app/pages/ is kept as the real folder name to match the project's
+# maintained structure. Streamlit would normally auto-detect this exact
+# folder name and generate its own multipage sidebar with real URLs
+# (/upload, /review, ...) running alongside this file's custom nav -
+# that's disabled via .streamlit/config.toml (showSidebarNavigation =
+# false) instead of renaming the folder, so the tree stays untouched.
 PAGE_ORDER = [
-    ("📤 Upload", "app.page_modules.1_upload", None),
-    ("📋 Review", "app.page_modules.2_review", "extraction_complete"),
-    ("📊 Dashboard", "app.page_modules.3_dashboard", "analysis_complete"),
-    ("📄 Report", "app.page_modules.4_report", "analysis_complete"),
-    ("ℹ️ About", "app.page_modules.5_about", None),
+    ("📤 Upload", "app.pages.1_upload", None),
+    ("📋 Review", "app.pages.2_review", "extraction_complete"),
+    ("📊 Dashboard", "app.pages.3_dashboard", "analysis_complete"),
+    ("📄 Report", "app.pages.4_report", "analysis_complete"),
+    ("ℹ️ About", "app.pages.5_about", None),
 ]
 
-# CSS lives at app/static/css/styles.css - resolved relative to this
-# file, not the working directory, so it works the same regardless of
-# where `streamlit run` is invoked from.
-CSS_PATH = Path(__file__).resolve().parent / "static" / "css" / "styles.css"
+# CSS lives at the repo's top-level static/css/styles.css (per the
+# maintained tree), resolved relative to this file's repo root rather
+# than the working directory, so it works regardless of where
+# `streamlit run` is invoked from.
+CSS_PATH = REPO_ROOT / "static" / "css" / "styles.css"
 
 
 def load_css(css_path: Path) -> None:
