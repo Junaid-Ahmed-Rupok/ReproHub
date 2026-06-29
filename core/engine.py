@@ -375,6 +375,26 @@ class StatisticalTestEngine:
         X = sm.add_constant(sub[independent_cols])
         model = sm.OLS(y, X).fit()
 
+        # Guard against (near-)perfectly collinear predictors. When the
+        # design matrix is singular or nearly so, OLS still "succeeds"
+        # via a pseudo-inverse and returns numbers that look like a
+        # normal result (an F-statistic, a p-value, an R²) but are
+        # numerically meaningless - e.g. F ~ 1e+32, p ~ 1e-279. Those
+        # would otherwise pass through with the same confident schema as
+        # a real result. statsmodels' own condition_number diagnostic
+        # (ratio of largest to smallest singular value of X) is the
+        # standard way to detect this; > ~1000 is conventionally treated
+        # as severe multicollinearity. 1e4 is used here as a conservative
+        # cutoff for "numerically unreliable", well below where the
+        # garbage values in the original bug report appeared (~1e16).
+        if not np.isfinite(model.condition_number) or model.condition_number > 1e4:
+            raise EngineError(
+                "linear_regression could not produce a reliable result: the "
+                "predictors are too highly correlated with each other "
+                f"(condition number = {model.condition_number:.2e}). Remove or "
+                "combine the collinear predictor(s) and try again."
+            )
+
         return {
             "test_type": "linear_regression",
             "statistic": float(model.fvalue),          # F-statistic for model fit
@@ -384,6 +404,7 @@ class StatisticalTestEngine:
             "details": {
                 "r_squared": float(model.rsquared),
                 "adj_r_squared": float(model.rsquared_adj),
+                "condition_number": float(model.condition_number),
                 "coefficients": {
                     col: float(coef)
                     for col, coef in zip(X.columns, model.params)
