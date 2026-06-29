@@ -407,7 +407,7 @@ def _style_dataframe(df: pd.DataFrame, claim_lookup: Dict[str, str]) -> pd.DataF
     df_display["Claim"] = df_display["claim_id"].map(claim_lookup).fillna(df_display["claim_id"])
     df_display["Claim"] = df_display["Claim"].astype(str).apply(lambda x: x[:75] + "…" if len(x) > 75 else x)
 
-    # 2. Map Status to plain text (for sorting) and prepare color mapping
+    # 2. Map Status to plain text and colors for Styler
     df_display["Status_Label"] = df_display["status"].map(lambda x: _STATUS.get(x, _STATUS["could_not_verify"])["label"])
     df_display["Status_Color"] = df_display["status"].map(lambda x: _STATUS.get(x, _STATUS["could_not_verify"])["color"])
     df_display["Status_BG"] = df_display["status"].map(lambda x: _STATUS.get(x, _STATUS["could_not_verify"])["bg"])
@@ -433,7 +433,7 @@ def _style_dataframe(df: pd.DataFrame, claim_lookup: Dict[str, str]) -> pd.DataF
     # 5. Test Type
     df_display["Test"] = df_display["test_type"].fillna("—").astype(str)
 
-    # 6. Select final columns
+    # 6. Select final columns (Color columns are used for styling but dropped from display)
     df_display = df_display[["Claim", "Test", "Status_Label", "Status_Color", "Status_BG", "Claimed p", "Repro. p", "Δ"]]
     return df_display
 
@@ -563,7 +563,8 @@ def render():
 
     styled_df = df_display.style.apply(highlight_status, axis=1)
 
-    # Display using st.dataframe with clean configurations
+    # Display using st.dataframe with clean configurations 
+    # (Color helper columns are safely ignored via dataframe subsetting)
     st.dataframe(
         styled_df,
         use_container_width=True,
@@ -572,12 +573,11 @@ def render():
             "Claim": st.column_config.TextColumn("Claim", width="large"),
             "Test": st.column_config.TextColumn("Test", width="small"),
             "Status_Label": st.column_config.TextColumn("Status", width="medium"),
-            "Status_Color": st.column_config.TextColumn("_", width="small", visible=False),
-            "Status_BG": st.column_config.TextColumn("_", width="small", visible=False),
             "Claimed p": st.column_config.TextColumn("Claimed p", width="small"),
             "Repro. p": st.column_config.TextColumn("Repro. p", width="small"),
             "Δ": st.column_config.TextColumn("Δ", width="small"),
-        }
+        },
+        column_order=["Claim", "Test", "Status_Label", "Claimed p", "Repro. p", "Δ"]
     )
 
     # ── Export ────────────────────────────────────────────────────────────────
