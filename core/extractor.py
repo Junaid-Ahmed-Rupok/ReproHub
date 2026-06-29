@@ -90,7 +90,15 @@ _EFFECT_PATTERNS: Dict[str, "re.Pattern[str]"] = {
 
 _EFFECT_SIZE_WINDOW = 60
 _CONTEXT_SEARCH_RADIUS = 300
-_LOOKBACK_SENTENCES = 1
+# Number of EXTRA sentences before the claim's own sentence to include.
+# 0 = current sentence only (the claim's own sentence, nothing more).
+# This was previously 1 with an indexing bug that made 1 behave like
+# "current sentence plus one extra" even when the intent was "current
+# sentence only" - fixed by correcting the index below AND defaulting
+# to 0, since pulling in an unrelated preceding sentence (which often
+# mentions a different variable) was contaminating claim_statement and,
+# downstream, core/matcher.py's fuzzy column matching.
+_LOOKBACK_SENTENCES = 0
 
 
 def _extract_sentence_context(text: str, match_start: int, match_end: int) -> str:
